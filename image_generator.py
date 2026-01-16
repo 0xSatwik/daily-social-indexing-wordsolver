@@ -87,15 +87,18 @@ def get_text_dimensions(draw, text, font):
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
-def draw_text_with_box(draw, text, center_x, center_y, font, text_color, box_color, padding_x=20, padding_y=10, radius=20):
-    """Draw text inside a rounded rectangle box"""
-    width, height = get_text_dimensions(draw, text, font)
+def draw_text_with_box(draw, text, center_x, center_y, font, text_color, box_color, padding_x=30, padding_y=15, radius=25):
+    """Draw text inside a rounded rectangle box with precise centering"""
+    # Use textbbox with anchor="mm" (middle-middle) to get precise dimensions relative to center
+    bbox = draw.textbbox((center_x, center_y), text, font=font, anchor="mm")
+    width = bbox[2] - bbox[0]
+    height = bbox[3] - bbox[1]
     
-    # Calculate box coordinates
-    box_x1 = center_x - width // 2 - padding_x
-    box_y1 = center_y - height // 2 - padding_y
-    box_x2 = center_x + width // 2 + padding_x
-    box_y2 = center_y + height // 2 + padding_y
+    # Calculate box coordinates from the text bbox with padding
+    box_x1 = bbox[0] - padding_x
+    box_y1 = bbox[1] - padding_y
+    box_x2 = bbox[2] + padding_x
+    box_y2 = bbox[3] + padding_y
     
     # Draw shadow for box
     shadow_offset = 6
@@ -112,42 +115,54 @@ def draw_text_with_box(draw, text, center_x, center_y, font, text_color, box_col
         fill=box_color
     )
     
-    # Draw text
+    # Draw text centered using anchor="mm"
     draw.text(
-        (center_x - width // 2, center_y - height // 2 - 2), # Slight vertical adjustment for visual centeredness
+        (center_x, center_y),
         text,
         font=font,
-        fill=text_color
+        fill=text_color,
+        anchor="mm"
     )
-    return max(box_y2, center_y + height // 2) # Return bottom Y for stacking
+    
+    # Return bottom Y of the box + padding for stacking
+    return box_y2 + 20
 
 
-def draw_puzzle_icon_large(draw, center_x, center_y, puzzle_name, box_size=80, gap=12):
+def draw_puzzle_icon_large(draw, center_x, center_y, puzzle_name, box_size=120, gap=15):
     """Draw a large, prominent puzzle icon"""
     puzzle = puzzle_name.lower()
     
     if puzzle == "wordle":
         # 5 boxes in a row - Wordle style
+        # Adjust size to fit 5 boxes in left panel
+        if box_size < 80: box_size = 80
+        if box_size > 90: box_size = 90  # Limit max size for 5-letter puzzles
+            
         total_width = 5 * box_size + 4 * gap
+        total_height = box_size
         start_x = center_x - total_width // 2
+        start_y = center_y - total_height // 2
+        
         colors = ["#6aaa64", "#c9b458", "#6aaa64", "#6aaa64", "#c9b458"]
         letters = ["W", "O", "R", "D", "S"]
         
         for i, (color, letter) in enumerate(zip(colors, letters)):
             x = start_x + i * (box_size + gap)
-            draw.rounded_rectangle([x, center_y - box_size//2, x + box_size, center_y + box_size//2], 
-                                   radius=12, fill=color)
+            draw.rounded_rectangle([x, start_y, x + box_size, start_y + box_size], 
+                                   radius=15, fill=color)
             # Draw letter
             letter_font = get_font("bold", int(box_size * 0.6))
-            lw, lh = get_text_dimensions(draw, letter, letter_font)
-            draw.text((x + (box_size - lw)//2, center_y - lh//2 - 5), letter, 
-                     font=letter_font, fill="white")
+            draw.text((x + box_size//2, start_y + box_size//2), letter, 
+                     font=letter_font, fill="white", anchor="mm")
     
     elif puzzle == "quordle":
         # 2x2 grid - Quordle style
-        # Move slightly up to center visually with letters
-        start_y_icon = center_y - (2 * box_size + gap) // 2
-        start_x = center_x - (2 * box_size + gap) // 2
+        # Make very large as requested
+        if box_size < 120: box_size = 120
+            
+        total_size = 2 * box_size + gap
+        start_x = center_x - total_size // 2
+        start_y = center_y - total_size // 2
         
         colors = ["#6aaa64", "#c9b458", "#787c7e", "#6aaa64"]
         letters = ["Q", "U", "A", "D"]
@@ -155,61 +170,71 @@ def draw_puzzle_icon_large(draw, center_x, center_y, puzzle_name, box_size=80, g
         for i in range(4):
             row, col = i // 2, i % 2
             x = start_x + col * (box_size + gap)
-            y = start_y_icon + row * (box_size + gap)
+            y = start_y + row * (box_size + gap)
             draw.rounded_rectangle([x, y, x + box_size, y + box_size], 
-                                   radius=12, fill=colors[i])
+                                   radius=15, fill=colors[i])
             letter_font = get_font("bold", int(box_size * 0.5))
-            lw, lh = get_text_dimensions(draw, letters[i], letter_font)
-            draw.text((x + (box_size - lw)//2, y + (box_size - lh)//2 - 3), letters[i], 
-                     font=letter_font, fill="white")
+            draw.text((x + box_size//2, y + box_size//2), letters[i], 
+                     font=letter_font, fill="white", anchor="mm")
     
     elif puzzle == "colordle":
         # Rainbow color boxes
+        if box_size < 80: box_size = 80
+        if box_size > 90: box_size = 90
+        
         total_width = 5 * box_size + 4 * gap
         start_x = center_x - total_width // 2
+        start_y = center_y - box_size // 2
+        
         colors = ["#e74c3c", "#f39c12", "#f1c40f", "#2ecc71", "#3498db"]
         
         for i, color in enumerate(colors):
             x = start_x + i * (box_size + gap)
-            draw.rounded_rectangle([x, center_y - box_size//2, x + box_size, center_y + box_size//2], 
-                                   radius=12, fill=color, outline="white", width=3)
+            draw.rounded_rectangle([x, start_y, x + box_size, start_y + box_size], 
+                                   radius=15, fill=color, outline="white", width=4)
     
     elif puzzle == "semantle":
         # Gradient similarity boxes
+        if box_size < 80: box_size = 80
+        if box_size > 90: box_size = 90
+        
         total_width = 5 * box_size + 4 * gap
         start_x = center_x - total_width // 2
+        start_y = center_y - box_size // 2
         
         for i in range(5):
             x = start_x + i * (box_size + gap)
             # Blue gradient from light to dark
             blue_intensity = int(100 + (155 * (i + 1) / 5))
             color = f"#3498db" if i == 4 else f"#{50+i*30:02x}{100+i*30:02x}{200+i*10:02x}"
-            draw.rounded_rectangle([x, center_y - box_size//2, x + box_size, center_y + box_size//2], 
-                                   radius=12, fill=color)
+            draw.rounded_rectangle([x, start_y, x + box_size, start_y + box_size], 
+                                   radius=15, fill=color)
             if i == 4: # Top match (100)
                  # Pct text
                 pct = "TOP"
                 pct_font = get_font("bold", int(box_size * 0.3))
-                pw, ph = get_text_dimensions(draw, pct, pct_font)
-                draw.text((x + (box_size - pw)//2, center_y - ph//2), pct, 
-                        font=pct_font, fill="white")
+                draw.text((x + box_size//2, start_y + box_size//2), pct, 
+                        font=pct_font, fill="white", anchor="mm")
 
-    
     elif puzzle == "phoodle":
         # Food-themed colorful boxes
+        if box_size < 80: box_size = 80
+        if box_size > 90: box_size = 90
+        
         total_width = 5 * box_size + 4 * gap
         start_x = center_x - total_width // 2
+        start_y = center_y - box_size // 2
+        
         colors = ["#e67e22", "#27ae60", "#e74c3c", "#f39c12", "#2ecc71"]
         letters = ["F", "O", "O", "D", "S"]
         
         for i, (color, letter) in enumerate(zip(colors, letters)):
             x = start_x + i * (box_size + gap)
-            draw.rounded_rectangle([x, center_y - box_size//2, x + box_size, center_y + box_size//2], 
-                                   radius=12, fill=color)
+            draw.rounded_rectangle([x, start_y, x + box_size, start_y + box_size], 
+                                   radius=15, fill=color)
             letter_font = get_font("bold", int(box_size * 0.6))
-            lw, lh = get_text_dimensions(draw, letter, letter_font)
-            draw.text((x + (box_size - lw)//2, center_y - lh//2 - 5), letter, 
-                     font=letter_font, fill="white")
+            draw.text((x + box_size//2, start_y + box_size//2), letter, 
+                     font=letter_font, fill="white", anchor="mm")
 
 
 def generate_pinterest_image(puzzle_name, date_str, theme_colors=None):
@@ -246,36 +271,38 @@ def generate_pinterest_image(puzzle_name, date_str, theme_colors=None):
     center_x = width // 2
     
     # 1. Puzzle Icon at Top
-    draw_puzzle_icon_large(draw, center_x, 300, puzzle_name, box_size=100, gap=15)
+    draw_puzzle_icon_large(draw, center_x, 320, puzzle_name, box_size=110, gap=15)
     
     # 2. Main Title (White Box, Black Text)
     title_font = get_font("bold", 80)
-    title_y = 550
-    draw_text_with_box(draw, f"{puzzle_name} Answer", center_x, title_y, 
+    title_y = 600
+    next_y = draw_text_with_box(draw, f"{puzzle_name} Answer", center_x, title_y, 
                       title_font, "black", "white", padding_x=40, padding_y=20, radius=30)
     
-    # 3. "for" text
+    # 3. "for" text (No Box)
     for_font = get_font("regular", 40)
-    draw_text_with_box(draw, "for", center_x, title_y + 110, for_font, "white", (0, 0, 0, 0), padding_x=0)
+    for_y = next_y + 30
+    draw.text((center_x, for_y), "for", font=for_font, fill="white", anchor="mm")
+    next_y = for_y + 40
 
     # 4. Date (Black Box, White Text)
     date_font = get_font("bold", 70)
-    date_y = title_y + 220
-    draw_text_with_box(draw, date_str, center_x, date_y, 
+    date_y = next_y + 60
+    next_y = draw_text_with_box(draw, date_str, center_x, date_y, 
                       date_font, "white", "black", padding_x=40, padding_y=20, radius=30)
     
-    # 5. Call to Action (Text only, prominent)
+    # 5. Call to Action (Translucent Box)
     cta_font = get_font("semibold", 45)
-    cta_y = date_y + 150
-    # Add a glowing effect/shadow
+    cta_y = next_y + 80
     cta_text = "Get Today's Hints & Answer"
-    cta_width, cta_height = get_text_dimensions(draw, cta_text, cta_font)
-    draw.text((center_x - cta_width//2 + 2, cta_y + 2), cta_text, font=cta_font, fill=(0,0,0,100))
-    draw.text((center_x - cta_width//2, cta_y), cta_text, font=cta_font, fill=(255, 255, 200))
+    
+    # Draw CTA box
+    draw_text_with_box(draw, cta_text, center_x, cta_y, cta_font, 
+                      (255, 255, 220), (0, 0, 0, 100), padding_x=30, padding_y=15, radius=25)
 
     # 6. Website Pill at Bottom
     brand_font = get_font("bold", 50)
-    brand_y = 1350
+    brand_y = 1380
     draw_text_with_box(draw, "wordsolverx.com", center_x, brand_y, 
                       brand_font, hex_to_rgb(theme["gradient"][1]), "white", 
                       padding_x=50, padding_y=25, radius=50)
@@ -318,47 +345,47 @@ def generate_facebook_image(puzzle_name, date_str, theme_colors=None):
             draw.ellipse([x-3, y-3, x+3, y+3], fill=(255, 255, 255, 30))
             
     # Layout Config
-    divider_x = 420
+    divider_x = 550 # Moved right significantly per user request
     content_center_x = divider_x + (width - divider_x) // 2
     icon_center_x = divider_x // 2
     
     # 1. Full Height Divider
-    # Draw a stylish line with some glow/transparency
-    draw.line([(divider_x, 40), (divider_x, height - 40)], fill=(255, 255, 255, 120), width=4)
-    # Add dots at ends of line
-    draw.ellipse([divider_x-6, 40-6, divider_x+6, 40+6], fill="white")
-    draw.ellipse([divider_x-6, height-40-6, divider_x+6, height-40+6], fill="white")
+    draw.line([(divider_x, 0), (divider_x, height)], fill=(255, 255, 255, 120), width=4)
 
-    # 2. Icon on Left Side
-    draw_puzzle_icon_large(draw, icon_center_x, height // 2, puzzle_name, box_size=80, gap=15)
+    # 2. Icon on Left Side (Large)
+    # Reduce box size slightly for 5-letter puzzles in landscape mode
+    box_size = 90 if puzzle_name.lower() in ["wordle", "phoodle", "colordle", "semantle"] else 110
+    gap = 10 if puzzle_name.lower() in ["wordle", "phoodle", "colordle", "semantle"] else 15
+    
+    draw_puzzle_icon_large(draw, icon_center_x, height // 2, puzzle_name, box_size=box_size, gap=gap)
     
     # 3. Content on Right Side (Boxed Text)
     
     # Title: White Box, Black Text
-    title_font = get_font("bold", 65)
-    title_y = 150
-    draw_text_with_box(draw, f"{puzzle_name} Answer", content_center_x, title_y,
+    title_font = get_font("bold", 60)
+    title_y = 130
+    next_y = draw_text_with_box(draw, f"{puzzle_name} Answer", content_center_x, title_y,
                       title_font, "black", "white", padding_x=30, padding_y=15, radius=25)
     
     # Date: Black Box, White Text
     date_font = get_font("bold", 50)
-    date_y = title_y + 110
-    draw_text_with_box(draw, date_str, content_center_x, date_y,
+    date_y = next_y + 70
+    next_y = draw_text_with_box(draw, date_str, content_center_x, date_y,
                       date_font, "white", "black", padding_x=30, padding_y=15, radius=25)
                       
-    # CTA Text (No Box, just color)
+    # CTA Text (Translucent Box)
     cta_font = get_font("semibold", 35)
-    cta_y = date_y + 100
+    cta_y = next_y + 70
     cta_text = "Get Hints & Solutions"
-    cta_w, cta_h = get_text_dimensions(draw, cta_text, cta_font)
-    draw.text((content_center_x - cta_w//2, cta_y), cta_text, font=cta_font, fill=(255, 255, 220))
+    draw_text_with_box(draw, cta_text, content_center_x, cta_y, cta_font, 
+                      (255, 255, 220), (0, 0, 0, 80), padding_x=25, padding_y=12, radius=20)
     
     # Website Pill Box at Bottom Right
-    brand_font = get_font("bold", 35)
-    brand_y = 520
+    brand_font = get_font("bold", 30)
+    brand_y = 560
     draw_text_with_box(draw, "wordsolverx.com", content_center_x, brand_y,
                       brand_font, hex_to_rgb(theme["gradient"][1]), "white",
-                      padding_x=40, padding_y=15, radius=40)
+                      padding_x=30, padding_y=12, radius=30)
 
     # Save
     temp_file = tempfile.NamedTemporaryFile(suffix='_facebook.png', delete=False)
@@ -373,8 +400,13 @@ def generate_pin_image(puzzle_name, date_str, primary_color=None, gradient_color
 
 
 if __name__ == "__main__":
-    # Test
-    p = generate_pinterest_image("Quordle", "January 17, 2026")
-    f = generate_facebook_image("Quordle", "January 17, 2026")
-    print(f"Pinterest: {p}")
-    print(f"Facebook: {f}")
+    # Test all puzzles
+    puzzles = ["Wordle", "Quordle", "Colordle", "Semantle", "Phoodle"]
+    date_str = "January 17, 2026"
+    
+    for puzzle in puzzles:
+        print(f"\nGenering images for {puzzle}...")
+        p = generate_pinterest_image(puzzle, date_str)
+        f = generate_facebook_image(puzzle, date_str)
+        print(f"Pinterest: {p}")
+        print(f"Facebook: {f}")
