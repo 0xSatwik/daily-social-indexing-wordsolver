@@ -1,0 +1,113 @@
+name: Daily Social Indexing & Pinterest Pins
+
+on:
+  schedule:
+    # All times in UTC (IST = UTC + 5:30)
+    # 12:00 AM IST = 6:30 PM UTC (previous day)
+    - cron: '30 18 * * *'   # Indexing + Wordle Pin
+    # 12:30 AM IST = 7:00 PM UTC
+    - cron: '0 19 * * *'    # Quordle Pin
+    # 1:00 AM IST = 7:30 PM UTC
+    - cron: '30 19 * * *'   # Colordle Pin
+    # 2:00 AM IST = 8:30 PM UTC
+    - cron: '30 20 * * *'   # Semantle Pin
+    # 3:00 AM IST = 9:30 PM UTC
+    - cron: '30 21 * * *'   # Phoodle Pin
+  
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'indexing'
+        type: choice
+        options:
+          - indexing
+          - social
+      puzzle_type:
+        description: 'Puzzle type (for social action)'
+        required: false
+        default: 'wordle'
+        type: choice
+        options:
+          - wordle
+          - quordle
+          - colordle
+          - semantle
+          - phoodle
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Determine action based on schedule
+        id: determine
+        run: |
+          # Get current hour and minute in UTC
+          HOUR=$(date -u +"%H")
+          MINUTE=$(date -u +"%M")
+          
+          echo "Current UTC time: $HOUR:$MINUTE"
+          
+          # Manual trigger
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+            echo "puzzle=${{ github.event.inputs.puzzle_type }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Scheduled triggers (based on cron time)
+          # 18:30 UTC = Indexing + Wordle
+          if [ "$HOUR" == "18" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
+            echo "action=indexing_and_wordle" >> $GITHUB_OUTPUT
+            echo "puzzle=wordle" >> $GITHUB_OUTPUT
+          # 19:00 UTC = Quordle
+          elif [ "$HOUR" == "19" ] && [ "$MINUTE" -ge "0" ] && [ "$MINUTE" -le "10" ]; then
+            echo "action=social" >> $GITHUB_OUTPUT
+            echo "puzzle=quordle" >> $GITHUB_OUTPUT
+          # 19:30 UTC = Colordle
+          elif [ "$HOUR" == "19" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
+            echo "action=social" >> $GITHUB_OUTPUT
+            echo "puzzle=colordle" >> $GITHUB_OUTPUT
+          # 20:30 UTC = Semantle
+          elif [ "$HOUR" == "20" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
+            echo "action=social" >> $GITHUB_OUTPUT
+            echo "puzzle=semantle" >> $GITHUB_OUTPUT
+          # 21:30 UTC = Phoodle
+          elif [ "$HOUR" == "21" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
+            echo "action=social" >> $GITHUB_OUTPUT
+            echo "puzzle=phoodle" >> $GITHUB_OUTPUT
+          else
+            echo "action=indexing" >> $GITHUB_OUTPUT
+            echo "puzzle=" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Run Indexing (12:00 AM IST)
+        if: contains(steps.determine.outputs.action, 'indexing')
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          ACTION: indexing
+        run: python main.py
+      
+      - name: Run Social Post
+        if: steps.determine.outputs.puzzle != ''
+        env:
+          PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
+          PINTEREST_USE_SANDBOX: ${{ secrets.PINTEREST_USE_SANDBOX || 'true' }}
+          FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          ACTION: social
+          PUZZLE_TYPE: ${{ steps.determine.outputs.puzzle }}
+        run: python main.py

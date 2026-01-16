@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+service_account.json
+*.png
+*.jpg
+wordsolverx-4a0c3925f80d.json
