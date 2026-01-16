@@ -14,7 +14,7 @@ load_dotenv()
 
 # Import modules
 from indexing import submit_urls_for_indexing
-from image_generator import generate_pin_image
+from image_generator import generate_pinterest_image, generate_facebook_image
 from pinterest_poster import upload_image_to_pinterest
 from facebook_poster import post_image_to_facebook
 
@@ -127,46 +127,60 @@ def run_social_post(puzzle_key):
     
     print(f"\n=== Creating {puzzle['name']} Pin ===")
     
-    # Generate image
+    # Generate date info
     date_display = format_date_for_display(ist_now)
     title = f"{puzzle['name']} Answer for {date_display}"
-    
-    image_path = generate_pin_image(
-        puzzle_name=puzzle['name'],
-        date_str=date_display,
-        primary_color=puzzle['color'],
-        gradient_colors=puzzle['gradient']
-    )
-    
-    if not image_path:
-        print(f"Failed to generate image for {puzzle['name']}")
-        return
     
     # Generate URL for the pin link
     date_url = format_date_for_url(ist_now)
     permalink = f"{BASE_URL}/{puzzle_key}-answer-for-{date_url}"
     
-    # Upload to Pinterest
-    print(f"Uploading to Pinterest (Board: {puzzle['board_id']})...")
-    upload_image_to_pinterest(
-        image_path=image_path,
-        title=title,
-        description=f"Find today's {puzzle['name']} answer and hints! Visit {permalink}",
-        link=permalink,
-        board_id=puzzle['board_id']
+    # Generate Pinterest image (1000x1500 - portrait)
+    print("Generating Pinterest image (1000x1500)...")
+    pinterest_image = generate_pinterest_image(
+        puzzle_name=puzzle['name'],
+        date_str=date_display,
+        theme_colors=puzzle['gradient']
     )
     
-    # Post to Facebook
-    print("Posting to Facebook...")
-    post_image_to_facebook(
-        image_path=image_path,
-        caption=f"🎯 {title}\n\n🔗 {permalink}\n\n#Wordle #{puzzle['name']} #WordGames #PuzzleGames"
+    if not pinterest_image:
+        print(f"Failed to generate Pinterest image for {puzzle['name']}")
+    else:
+        # Upload to Pinterest
+        print(f"Uploading to Pinterest (Board: {puzzle['board_id']})...")
+        upload_image_to_pinterest(
+            image_path=pinterest_image,
+            title=title,
+            description=f"Find today's {puzzle['name']} answer and hints! Visit {permalink}",
+            link=permalink,
+            board_id=puzzle['board_id']
+        )
+        # Cleanup Pinterest image
+        if os.path.exists(pinterest_image):
+            os.remove(pinterest_image)
+            print(f"Cleaned up Pinterest image")
+    
+    # Generate Facebook image (1200x628 - landscape)
+    print("Generating Facebook image (1200x628)...")
+    facebook_image = generate_facebook_image(
+        puzzle_name=puzzle['name'],
+        date_str=date_display,
+        theme_colors=puzzle['gradient']
     )
     
-    # Cleanup
-    if os.path.exists(image_path):
-        os.remove(image_path)
-        print(f"Cleaned up temporary image: {image_path}")
+    if not facebook_image:
+        print(f"Failed to generate Facebook image for {puzzle['name']}")
+    else:
+        # Post to Facebook
+        print("Posting to Facebook...")
+        post_image_to_facebook(
+            image_path=facebook_image,
+            caption=f"🎯 {title}\n\n🔗 {permalink}\n\n#Wordle #{puzzle['name']} #WordGames #PuzzleGames"
+        )
+        # Cleanup Facebook image
+        if os.path.exists(facebook_image):
+            os.remove(facebook_image)
+            print(f"Cleaned up Facebook image")
 
 def main():
     """Main entry point"""
