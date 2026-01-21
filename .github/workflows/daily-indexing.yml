@@ -1,19 +1,6 @@
 name: Daily Social Indexing & Pinterest Pins
 
 on:
-  schedule:
-    # All times in UTC (IST = UTC + 5:30)
-    # 12:00 AM IST = 6:30 PM UTC (previous day)
-    - cron: '30 18 * * *'   # Indexing + Wordle Pin
-    # 12:30 AM IST = 7:00 PM UTC
-    - cron: '0 19 * * *'    # Quordle Pin
-    # 1:00 AM IST = 7:30 PM UTC
-    - cron: '30 19 * * *'   # Colordle Pin
-    # 2:00 AM IST = 8:30 PM UTC
-    - cron: '30 20 * * *'   # Semantle Pin
-    # 3:00 AM IST = 9:30 PM UTC
-    - cron: '30 21 * * *'   # Phoodle Pin
-  
   workflow_dispatch:
     inputs:
       action:
@@ -27,9 +14,10 @@ on:
       puzzle_type:
         description: 'Puzzle type (for social action)'
         required: false
-        default: 'wordle'
+        default: 'none'
         type: choice
         options:
+          - none
           - wordle
           - quordle
           - colordle
@@ -52,47 +40,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Determine action based on schedule
+      - name: Determine action based on input
         id: determine
         run: |
-          # Get current hour and minute in UTC
-          HOUR=$(date -u +"%H")
-          MINUTE=$(date -u +"%M")
-          
-          echo "Current UTC time: $HOUR:$MINUTE"
-          
-          # Manual trigger
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
-            echo "puzzle=${{ github.event.inputs.puzzle_type }}" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Scheduled triggers (based on cron time)
-          # 18:30 UTC = Indexing + Wordle
-          if [ "$HOUR" == "18" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
-            echo "action=indexing_and_wordle" >> $GITHUB_OUTPUT
-            echo "puzzle=wordle" >> $GITHUB_OUTPUT
-          # 19:00 UTC = Quordle
-          elif [ "$HOUR" == "19" ] && [ "$MINUTE" -ge "0" ] && [ "$MINUTE" -le "10" ]; then
-            echo "action=social" >> $GITHUB_OUTPUT
-            echo "puzzle=quordle" >> $GITHUB_OUTPUT
-          # 19:30 UTC = Colordle
-          elif [ "$HOUR" == "19" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
-            echo "action=social" >> $GITHUB_OUTPUT
-            echo "puzzle=colordle" >> $GITHUB_OUTPUT
-          # 20:30 UTC = Semantle
-          elif [ "$HOUR" == "20" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
-            echo "action=social" >> $GITHUB_OUTPUT
-            echo "puzzle=semantle" >> $GITHUB_OUTPUT
-          # 21:30 UTC = Phoodle
-          elif [ "$HOUR" == "21" ] && [ "$MINUTE" -ge "25" ] && [ "$MINUTE" -le "35" ]; then
-            echo "action=social" >> $GITHUB_OUTPUT
-            echo "puzzle=phoodle" >> $GITHUB_OUTPUT
-          else
-            echo "action=indexing" >> $GITHUB_OUTPUT
-            echo "puzzle=" >> $GITHUB_OUTPUT
-          fi
+          echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+          echo "puzzle=${{ github.event.inputs.puzzle_type }}" >> $GITHUB_OUTPUT
       
       - name: Run Indexing (12:00 AM IST)
         if: contains(steps.determine.outputs.action, 'indexing')
@@ -102,7 +54,7 @@ jobs:
         run: python main.py
       
       - name: Run Social Post
-        if: steps.determine.outputs.puzzle != ''
+        if: steps.determine.outputs.puzzle != 'none' && steps.determine.outputs.puzzle != ''
         env:
           PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
           PINTEREST_USE_SANDBOX: ${{ secrets.PINTEREST_USE_SANDBOX || 'true' }}
